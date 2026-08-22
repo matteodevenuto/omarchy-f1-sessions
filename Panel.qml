@@ -152,9 +152,9 @@ Panel {
               Text {
                 text: {
                   if (!root.focusSession) return ""
-                  var s = root.focusSession
-                  var gp = Model.shortGpName(s.meetingName, s.officialName)
-                  return gp + (s.location ? "  ·  " + s.location : "")
+                  return Model.shortGpName(root.focusSession.meetingName, root.focusSession.officialName)
+                  // Track/city intentionally omitted here — it's shown per
+                  // weekend below.
                 }
                 elide: Text.ElideRight
                 width: parent.width
@@ -197,7 +197,8 @@ Panel {
                 text: {
                   if (!root.focusSession) return ""
                   if (Model.isLive(root.focusSession, root.nowMs)) return "LIVE"
-                  return "in " + Model.countdown(root.focusSession.startMs - root.nowMs, false)
+                  var untilStart = root.focusSession.startMs - root.nowMs
+                  return untilStart > 0 ? "in " + Model.countdown(untilStart, false) : ""
                 }
                 color: root.focusSession && Model.isLive(root.focusSession, root.nowMs)
                        ? root.bar.urgent !== undefined ? root.bar.urgent : root.bar.foreground

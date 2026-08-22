@@ -14,8 +14,8 @@ schedules.
   next session (`SPRINT 12:00`), time-only, race-weekend view (`NED GP Sat`),
   or logo-only.
 - **Schedule popup** listing all upcoming GPs grouped by weekend and day, with
-  emoji flags, city/country, live highlighting (`● LIVE`), and the next session
-  pinned at the top.
+  emoji flags, city/country, live highlighting (`● LIVE`), and the next
+  session pinned at the top.
 - **Session alerts** — toggle the 🔔 in the panel corner to get a desktop
   notification 5 minutes before each session starts. A test notification fires
   when you enable it.
@@ -32,8 +32,7 @@ schedules.
 omarchy plugin add https://github.com/matteodevenuto/omarchy-f1-sessions.git
 ```
 
-Then open the **Plugin Manager** (or `omarchy plugin list`) and enable
-**F1 Sessions** on the bar — or:
+Then open the Plugin Manager and enable **F1 Sessions** on the bar — or:
 
 ```bash
 omarchy plugin enable matteodevenuto.f1-sessions right
@@ -63,18 +62,18 @@ Settings live in the widget entry of `~/.config/omarchy/shell.json`
 
 | Key | Default | Description |
 |---|---|---|
-| `refreshMinutes` | `60` | Schedule refresh interval |
-| `daysAhead` | `21` | How many days of upcoming sessions to show |
+| `refreshMinutes` | `60` | Schedule refresh interval (minutes) |
+| `daysAhead` | `21` | Days of upcoming sessions to show |
 | `hideWhenQuiet` | `false` | Hide the bar widget when nothing is scheduled in range |
 | `use24h` | `true` | 24-hour times |
 | `displayMode` | `"next"` | Bar label mode (`next`, `time`, `weekend`, `logo`) |
-| `notifications` | `true` | Alert 5 minutes before each session |
+| `notifications` | ` true` | Alert 5 minutes before each session |
 
 ## Screenshots
 
-![Panel](docs/screenshot-panel.png)
+![Panel with race weekends](docs/screenshot-panel.png)
 
-![Bar and panel](docs/screenshot-bar.png)
+![Bar widget and schedule](docs/screenshot-bar.png)
 
 ## Data sources & disclaimer
 

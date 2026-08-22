@@ -256,11 +256,15 @@ function groupDays(list, locale) {
   return days
 }
 
-// Index of the session to highlight: the first live one, else the next one.
+// Index of the session to highlight: the first live one, else the next one
+// that hasn't started yet. Sessions that already finished are skipped even
+// if they linger in the list through the post-session grace window.
 function focusIndex(list, nowMs) {
   for (var i = 0; i < list.length; i++)
     if (nowMs >= list[i].startMs && nowMs <= list[i].endMs) return i
-  return list.length ? 0 : -1
+  for (var i = 0; i < list.length; i++)
+    if (nowMs < list[i].startMs) return i
+  return -1
 }
 
 function isLive(session, nowMs) {
