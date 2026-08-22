@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "id": "matteodevenuto.f1-sessions",
+  "name": "F1 Sessions",
+  "version": "0.1.0",
+  "author": "matteodevenuto",
+  "license": "MIT",
+  "description": "Countdown to the next Formula 1 session with a full race-weekend schedule popup. Powered by OpenF1.",
+  "homepage": "https://github.com/matteodevenuto/omarchy-f1-sessions",
+  "repository": "https://github.com/matteodevenuto/omarchy-f1-sessions",
+  "keywords": [
+    "f1",
+    "formula1",
+    "motorsport",
+    "racing",
+    "schedule",
+    "countdown",
+    "openf1"
+  ],
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "F1 Sessions",
+    "description": "Next F1 session countdown and race-weekend schedule, fed by OpenF1",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshMinutes": 60,
+      "daysAhead": 21,
+      "hideWhenQuiet": false,
+      "use24h": true,
+      "displayMode": "next",
+      "notifications": true
+    },
+    "schema": [
+      {
+        "key": "refreshMinutes",
+        "type": "integer",
+        "label": "Refresh interval (minutes)",
+        "min": 10,
+        "max": 360,
+        "step": 10,
+        "defaultValue": 60
+      },
+      {
+        "key": "daysAhead",
+        "type": "integer",
+        "label": "Show sessions up to this many days ahead",
+        "min": 3,
+        "max": 60,
+        "step": 1,
+        "defaultValue": 21
+      },
+      {
+        "key": "hideWhenQuiet",
+        "type": "boolean",
+        "label": "Hide the bar widget when no sessions are within range",
+        "defaultValue": false
+      },
+      {
+        "key": "use24h",
+        "type": "boolean",
+        "label": "Use 24-hour times (local timezone)",
+        "defaultValue": true
+      }
+    ]
+  }
+}
