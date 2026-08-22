@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "matteodevenuto.f1-sessions",
   "name": "F1 Sessions",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "matteodevenuto",
   "license": "MIT",
   "description": "Countdown to the next Formula 1 session with a full race-weekend schedule popup. Powered by OpenF1.",
@@ -35,7 +35,8 @@
       "hideWhenQuiet": false,
       "use24h": true,
       "displayMode": "next",
-      "notifications": true
+      "notifications": true,
+      "notificationSound": true
     },
     "schema": [
       {
@@ -67,6 +68,28 @@
         "type": "boolean",
         "label": "Use 24-hour times (local timezone)",
         "defaultValue": true
+      },
+      {
+        "key": "displayMode",
+        "type": "enum",
+        "label": "Bar display mode",
+        "options": ["next", "time", "weekend", "logo"],
+        "defaultValue": "next",
+        "description": "Choose what is displayed beside the F1 logo. Right-clicking the widget also cycles this setting."
+      },
+      {
+        "key": "notifications",
+        "type": "boolean",
+        "label": "Session alerts",
+        "defaultValue": true,
+        "description": "Notify five minutes before each session starts."
+      },
+      {
+        "key": "notificationSound",
+        "type": "boolean",
+        "label": "Radio alert sound",
+        "defaultValue": true,
+        "description": "Play a short pit-wall radio-style cue with session alerts."
       }
     ]
   }

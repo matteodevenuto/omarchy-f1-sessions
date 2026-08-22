@@ -13,18 +13,30 @@ BarWidget {
   property var sessions: []
   property var meetingsMap: ({})
   property bool useFallback: false
+  property string fetchSource: "openf1"
+  property int scheduleYear: 0
   property int focusIdx: -1
   property bool loaded: false
   property bool fetching: false
   property string lastUpdated: ""
   readonly property var focusSession: (focusIdx >= 0 && focusIdx < sessions.length) ? sessions[focusIdx] : null
 
-  readonly property int refreshMinutes: Math.max(10, parseInt(setting("refreshMinutes", 60), 10) || 60)
-  readonly property int daysAhead: Math.max(1, parseInt(setting("daysAhead", 21), 10) || 21)
+  readonly property int refreshMinutes: Math.min(360, Math.max(10, parseInt(setting("refreshMinutes", 60), 10) || 60))
+  readonly property int daysAhead: Math.min(60, Math.max(1, parseInt(setting("daysAhead", 21), 10) || 21))
   readonly property bool hideWhenQuiet: setting("hideWhenQuiet", false) === true
   readonly property bool use24h: setting("use24h", true) !== false
   readonly property bool notificationsOn: setting("notifications", true) !== false
+  readonly property bool notificationSoundOn: setting("notificationSound", true) !== false
   readonly property string sourceLabel: useFallback ? "Jolpica" : "OpenF1"
+  readonly property int maxResponseBytes: 1024 * 1024
+  readonly property string apiUserAgent: "omarchy-f1-sessions/0.2.0"
+  readonly property url notificationSoundUrl: Qt.resolvedUrl("assets/radio-alert.wav")
+
+  function playNotificationSound() {
+    if (!root.notificationSoundOn) return
+    var soundPath = root.notificationSoundUrl.toString().replace(/^file:\/\//, "")
+    Quickshell.execDetached(["pw-play", soundPath])
+  }
 
   function toggleNotifications() {
     var next = !root.notificationsOn
@@ -39,7 +51,19 @@ BarWidget {
       root.notifiedKeys = {}
       Quickshell.execDetached(["omarchy-notification-send",
         "F1 alerts on · you'll get a ping 5 min before each session starts"])
+      root.playNotificationSound()
     }
+  }
+
+  function toggleNotificationSound() {
+    var next = !root.notificationSoundOn
+    var entry = { id: root.moduleName }
+    for (var key in root.settings) if (key !== "id") entry[key] = root.settings[key]
+    entry.notificationSound = next
+    root.settings = entry
+    if (root.bar && root.bar.shell && typeof root.bar.shell.updateEntryInline === "function")
+      root.bar.shell.updateEntryInline(root.moduleName, entry)
+    if (next) Qt.callLater(root.playNotificationSound)
   }
 
   // One-shot alerts fired NOTIFY_LEAD minutes before each session start.
@@ -74,6 +98,7 @@ BarWidget {
       Quickshell.execDetached(["omarchy-notification-send",
         "F1 · " + Model.shortGpName(s.meetingName, s.officialName) + ": "
         + s.name + " starts " + Model.formatTime(d, root.use24h)])
+      root.playNotificationSound()
     }
     pruneNotifiedKeys(now)
   }
@@ -143,19 +168,31 @@ BarWidget {
   function refresh() {
     if (root.fetching) return
     root.fetching = true
-    if (root.useFallback) {
-      sessionsProc.command = ["curl", "-fsS", "--max-time", "8", Model.jolpicaUrl()]
-      sessionsProc.running = true
-    } else {
-      fetchOpenF1(new Date().getFullYear())
-    }
+    root.fetchSource = "openf1"
+    fetchOpenF1(new Date().getFullYear())
   }
 
   function fetchOpenF1(year) {
     sessionsProc.year = year
-    sessionsProc.command = ["curl", "-fsS", "--max-time", "8", Model.sessionsUrl(year)]
+    sessionsProc.command = ["curl", "-fsS", "--max-time", "8", "--user-agent",
+                            root.apiUserAgent, "--max-filesize",
+                            String(root.maxResponseBytes), Model.sessionsUrl(year)]
     sessionsProc.running = true
-    meetingsProc.command = ["curl", "-fsS", "--max-time", "8", Model.meetingsUrl(year)]
+  }
+
+  function fetchJolpica() {
+    root.fetchSource = "jolpica"
+    sessionsProc.command = ["curl", "-fsS", "--max-time", "8", "--user-agent",
+                            root.apiUserAgent, "--max-filesize",
+                            String(root.maxResponseBytes), Model.jolpicaUrl()]
+    sessionsProc.running = true
+  }
+
+  function fetchMeetings(year) {
+    meetingsProc.year = year
+    meetingsProc.command = ["curl", "-fsS", "--max-time", "8", "--user-agent",
+                            root.apiUserAgent, "--max-filesize",
+                            String(root.maxResponseBytes), Model.meetingsUrl(year)]
     meetingsProc.running = true
   }
 
@@ -169,12 +206,16 @@ BarWidget {
         var parsed = null
         if (raw !== "") {
           try {
-            parsed = root.useFallback
+            parsed = root.fetchSource === "jolpica"
               ? Model.parseJolpica(raw, Date.now())
               : Model.parseSessions(raw, Date.now())
           } catch (e) { parsed = null }
         }
         if (parsed && parsed.length > 0) {
+          root.useFallback = root.fetchSource === "jolpica"
+          root.scheduleYear = root.useFallback ? 0 : sessionsProc.year
+          if (root.useFallback) root.meetingsMap = {}
+          else root.fetchMeetings(root.scheduleYear)
           root.sessions = parsed
           root.loaded = true
           root.lastUpdated = Qt.formatDateTime(new Date(), "HH:mm")
@@ -182,11 +223,15 @@ BarWidget {
           root.fetching = false
           return
         }
-        // OpenF1 failed or went empty: switch to Jolpica once and retry.
-        if (!root.useFallback) {
-          root.useFallback = true
-          root.fetching = false
-          Qt.callLater(root.refresh)
+        // Once this season has no usable sessions, try the next calendar
+        // automatically. Only fall back after both OpenF1 requests fail.
+        if (root.fetchSource === "openf1") {
+          var currentYear = new Date().getFullYear()
+          if (sessionsProc.year === currentYear) {
+            Qt.callLater(function() { root.fetchOpenF1(currentYear + 1) })
+            return
+          }
+          Qt.callLater(root.fetchJolpica)
           return
         }
         root.fetching = false
@@ -196,9 +241,11 @@ BarWidget {
 
   Process {
     id: meetingsProc
+    property int year: new Date().getFullYear()
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
+        if (meetingsProc.year !== root.scheduleYear) return
         try {
           root.meetingsMap = Model.parseMeetings(text)
         } catch (e) {}
@@ -231,7 +278,7 @@ BarWidget {
   }
   readonly property string tooltip: {
     if (!focusSession) return loaded ? "No upcoming F1 sessions" : "Fetching F1 schedule…"
-    return "Next: " + Model.longSummary(focusSession, nowMs, use24h)
+    return "Next: " + Model.tooltipSummary(focusSession, nowMs, use24h)
   }
 
   visible: !hideWhenQuiet || !!focusSession
@@ -321,6 +368,7 @@ BarWidget {
         anchors.verticalCenter: parent.verticalCenter
         visible: !root.vertical && root.label !== ""
         text: root.label
+        textFormat: Text.PlainText
         color: button.foreground
         font.family: root.bar ? root.bar.fontFamily : Style.font.family
         font.pixelSize: Style.font.body

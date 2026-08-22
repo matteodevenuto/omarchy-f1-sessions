@@ -63,37 +63,6 @@ Panel {
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
-      // Notification bell, bottom-right corner of the panel.
-      Rectangle {
-        z: 10
-        anchors.bottom: parent.bottom
-        anchors.right: parent.right
-        width: Style.space(30)
-        height: width
-        radius: height / 2
-        color: bellArea.containsMouse
-               ? Style.hoverFillFor(root.bar.foreground, Color.accent)
-               : "transparent"
-
-        Text {
-          anchors.centerIn: parent
-          // Emoji instead of nerd-font glyphs: renders reliably everywhere.
-          text: hostWidget && hostWidget.notificationsOn ? "🔔" : "🔕"
-          color: (hostWidget && hostWidget.notificationsOn)
-                 ? root.bar.foreground : Qt.darker(root.bar.foreground, 1.6)
-          font.family: root.bar.fontFamily
-          font.pixelSize: Style.font.body
-        }
-
-        MouseArea {
-          id: bellArea
-          anchors.fill: parent
-          hoverEnabled: true
-          cursorShape: Qt.PointingHandCursor
-          onClicked: if (hostWidget) hostWidget.toggleNotifications()
-        }
-      }
-
       Flickable {
         id: scheduleScroll
         anchors.fill: parent
@@ -140,6 +109,7 @@ Panel {
 
               Text {
                 text: root.focusSession ? root.focusSession.name : ""
+                textFormat: Text.PlainText
                 elide: Text.ElideRight
                 width: parent.width
                 color: root.bar.foreground
@@ -156,6 +126,7 @@ Panel {
                   // Track/city intentionally omitted here — it's shown per
                   // weekend below.
                 }
+                textFormat: Text.PlainText
                 elide: Text.ElideRight
                 width: parent.width
                 color: Qt.darker(root.bar.foreground, 1.4)
@@ -271,6 +242,7 @@ Panel {
                   anchors.rightMargin: Style.space(8)
                   anchors.verticalCenter: parent.verticalCenter
                   text: modelData.officialName || modelData.meetingName
+                  textFormat: Text.PlainText
                   elide: Text.ElideRight
                   color: root.bar.foreground
                   font.family: root.bar.fontFamily
@@ -283,6 +255,7 @@ Panel {
                   anchors.right: parent.right
                   anchors.verticalCenter: parent.verticalCenter
                   text: [modelData.location, modelData.countryCode].filter(function(x) { return !!x }).join(" · ")
+                  textFormat: Text.PlainText
                   color: Qt.darker(root.bar.foreground, 1.5)
                   font.family: root.bar.fontFamily
                   font.pixelSize: Style.font.caption
@@ -357,6 +330,7 @@ Panel {
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width - sessionTime.width - Style.space(80)
                         text: sessionRow.modelData.name
+                        textFormat: Text.PlainText
                         elide: Text.ElideRight
                         color: root.bar.foreground
                         font.family: root.bar.fontFamily
@@ -384,16 +358,80 @@ Panel {
           }
 
           // ---- Footer -----------------------------------------------------
-          Text {
+          Item {
             width: parent.width
-            horizontalAlignment: Text.AlignHCenter
-            text: (hostWidget ? hostWidget.sourceLabel : "OpenF1")
-                  + " · times local"
-                  + (root.lastUpdated !== "" ? " · updated " + root.lastUpdated : "")
-            color: Qt.darker(root.bar.foreground, 1.7)
-            font.family: root.bar.fontFamily
-            font.pixelSize: Style.font.caption
-            font.italic: true
+            height: Style.space(30)
+
+            Text {
+              anchors.centerIn: parent
+              text: (hostWidget ? hostWidget.sourceLabel : "OpenF1")
+                    + " · times local"
+                    + (root.lastUpdated !== "" ? " · updated " + root.lastUpdated : "")
+              color: Qt.darker(root.bar.foreground, 1.7)
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.caption
+              font.italic: true
+            }
+
+            // Keep notification control in the footer instead of floating at
+            // the panel edge, aligned with the source/update status.
+            Rectangle {
+              id: bellButton
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              width: Style.space(28)
+              height: width
+              radius: height / 2
+              color: bellArea.containsMouse
+                     ? Style.hoverFillFor(root.bar.foreground, Color.accent)
+                     : "transparent"
+
+              Text {
+                anchors.centerIn: parent
+                text: hostWidget && hostWidget.notificationsOn ? "🔔" : "🔕"
+                color: (hostWidget && hostWidget.notificationsOn)
+                       ? root.bar.foreground : Qt.darker(root.bar.foreground, 1.6)
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.body
+              }
+
+              MouseArea {
+                id: bellArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: if (hostWidget) hostWidget.toggleNotifications()
+              }
+            }
+
+            Rectangle {
+              anchors.right: bellButton.left
+              anchors.rightMargin: Style.space(4)
+              anchors.verticalCenter: parent.verticalCenter
+              width: Style.space(28)
+              height: width
+              radius: height / 2
+              color: soundArea.containsMouse
+                     ? Style.hoverFillFor(root.bar.foreground, Color.accent)
+                     : "transparent"
+
+              Text {
+                anchors.centerIn: parent
+                text: hostWidget && hostWidget.notificationSoundOn ? "🔊" : "🔇"
+                color: (hostWidget && hostWidget.notificationSoundOn)
+                       ? root.bar.foreground : Qt.darker(root.bar.foreground, 1.6)
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.body
+              }
+
+              MouseArea {
+                id: soundArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: if (hostWidget) hostWidget.toggleNotificationSound()
+              }
+            }
           }
         }
       }
