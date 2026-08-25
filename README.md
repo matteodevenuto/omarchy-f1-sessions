@@ -12,16 +12,18 @@ schedules.
 
 - **Bar countdown** to the next F1 session — right-click cycles what it shows:
   next session (`SPRINT 12:00`), time-only, race-weekend view (`NED GP Sat`),
-  or logo-only.
+  a compact checkered-flag icon, or the wide F1 logo.
 - **Schedule popup** listing all upcoming GPs grouped by weekend and day, with
   emoji flags, city/country, live highlighting (`● LIVE`), and the next
   session pinned at the top.
-- **Session alerts** — toggle the 🔔 in the panel footer to get a desktop
+- **Session alerts** — toggle the bell in the panel footer to get a desktop
   notification and short radio-style cue 5 minutes before each session starts.
-  A test notification and sound fire when you enable it.
+  A test notification and sound fire when you enable it. Alerts are deduplicated
+  across monitors and can cover all sessions, competitive sessions, or races and sprints only.
 - **Resilient data** — pulls from [OpenF1](https://openf1.org/) and falls back
   to [Jolpica](https://github.com/jolpica/jolpica-f1) automatically if OpenF1
-  is unavailable. The footer shows which source is live.
+  is unavailable. The latest successful schedule is cached for instant startup
+  and offline use; the footer shows refresh progress and failures.
 - **Timezone aware** — all times render in your local timezone and re-render
   when it changes.
 - **Automatic season rollover** — after the final session ends, the next
@@ -56,8 +58,9 @@ omarchy plugin remove matteodevenuto.f1-sessions
 | Left-click | Open/close the schedule panel |
 | Right-click | Cycle bar display mode |
 | Middle-click | Refresh schedule now |
-| 🔔 (panel footer) | Toggle session alerts and play a test alert when enabled |
-| 🔊 (panel footer) | Toggle alert audio without disabling desktop notifications |
+| Alert button (panel footer) | Cycle off → notifications with sound → notifications muted |
+| Alert-filter button (panel footer) | Cycle all sessions, competitive sessions, or races + sprints |
+| Refresh button (panel footer) | Refresh the schedule immediately |
 
 ### IPC
 
@@ -65,6 +68,7 @@ omarchy plugin remove matteodevenuto.f1-sessions
 omarchy-shell matteodevenuto.f1-sessions toggle    # open/close panel
 omarchy-shell matteodevenuto.f1-sessions refresh   # refetch schedule
 omarchy-shell matteodevenuto.f1-sessions cycleDisplay
+omarchy-shell matteodevenuto.f1-sessions status    # data/cache/error status as JSON
 ```
 
 ## Settings
@@ -78,9 +82,10 @@ Settings live in the widget entry of `~/.config/omarchy/shell.json`
 | `daysAhead` | `21` | Days of upcoming sessions to show |
 | `hideWhenQuiet` | `false` | Hide the bar widget when nothing is scheduled in range |
 | `use24h` | `true` | 24-hour times |
-| `displayMode` | `"next"` | Bar label mode (`next`, `time`, `weekend`, `logo`) |
+| `displayMode` | `"icon"` | Bar display mode (`next`, `time`, `weekend`, `icon`, `logo`) |
 | `notifications` | `true` | Alert 5 minutes before each session |
 | `notificationSound` | `true` | Play the radio-style cue with session alerts |
+| `notificationSessions` | `"all"` | Alert for `all`, `competitive` (no practice), or `race` (Grand Prix + Sprint) sessions |
 
 ### Alert sound
 
@@ -92,21 +97,20 @@ pw-play ~/.config/omarchy/plugins/matteodevenuto.f1-sessions/assets/radio-alert.
 ```
 
 Set `notificationSound` to `false` to keep the five-minute desktop alert but
-disable its audio. Turning alerts on with the footer bell plays the same sound
-as a test; turning alerts off is silent. The adjacent speaker button changes
-this setting directly and plays a preview when sound is enabled.
+disable its audio. The combined footer alert button cycles off → notifications
+with sound → notifications muted; enabling alerts plays the same sound as a
+test, while muting or disabling them is silent.
+
+The last successful schedule is stored at
+`$XDG_CACHE_HOME/omarchy-f1-sessions/schedule.json` (or
+`~/.cache/omarchy-f1-sessions/schedule.json` when `XDG_CACHE_HOME` is unset).
+Cached sessions that have already ended are discarded when the plugin starts.
 
 The bundled cue is “f1_radio_sound” by
 [u_dn8ylcpe3v](https://pixabay.com/users/u_dn8ylcpe3v-47423286/) via
 [Pixabay](https://pixabay.com/sound-effects/film-special-effects-f1-radio-sound-293747/),
 used under the [Pixabay Content License](https://pixabay.com/service/license-summary/).
 It is incorporated into this plugin and is not offered as a standalone sound.
-
-## Screenshots
-
-![Panel with race weekends](docs/screenshot-panel.png)
-
-![Bar widget and schedule](docs/screenshot-bar.png)
 
 ## Data sources & disclaimer
 
@@ -152,10 +156,10 @@ Validate the project checkout with:
 omarchy plugin validate .
 ```
 
-Run the parser and input-boundary tests with:
+Run the parser, input-boundary, and manifest-contract tests with:
 
 ```bash
-node --test tests/model.test.js
+node --test tests/*.test.js
 ```
 
 ## License

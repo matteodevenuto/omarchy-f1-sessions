@@ -347,13 +347,21 @@ function formatTime(d, use24h) {
   return Qt.formatTime(d, use24h ? "HH:mm" : "h:mm ap")
 }
 
+function shouldNotifySession(session, mode) {
+  if (mode === "all") return true
+  var name = String(session && session.name || "").toLowerCase()
+  if (mode === "race") return name === "race" || name === "sprint"
+  return name.indexOf("practice") < 0 && !/^fp[1-3]$/.test(name)
+}
+
 // Mode-aware bar labels. Modes:
 //   next    - "Q LIVE", "SPRINT 12:00", "NED FP1 Fri", "ITA Q 12d"
 //   time    - always the clock time: "SPRINT 12:00", "Sat 15:00"
 //   weekend - meeting-centric: "NED GP LIVE", "NED GP Fri", "NED GP 12d"
-//   logo    - "" (icon only)
+//   icon    - "" (compact bar icon only)
+//   logo    - "" (F1 logo only)
 function barLabelForMode(mode, session, nowMs, use24h, locale) {
-  if (mode === "logo" || !session) return ""
+  if (mode === "icon" || mode === "logo" || !session) return ""
   var live = isLive(session, nowMs)
   if (live) return mode === "weekend" ? session.countryCode + " GP LIVE" : session.short + " LIVE"
 

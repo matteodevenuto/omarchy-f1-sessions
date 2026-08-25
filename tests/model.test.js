@@ -104,3 +104,21 @@ test("bounds and sanitizes meeting records", () => {
   assert.equal(Object.keys(parsed).length, Model.MAX_MEETINGS)
   assert.equal(parsed["0"].officialName.includes("\n"), false)
 })
+
+test("icon-only display modes have no countdown label", () => {
+  const session = Model.parseSessions(JSON.stringify([openF1Session()]), now)[0]
+  assert.equal(Model.barLabelForMode("icon", session, now, true), "")
+  assert.equal(Model.barLabelForMode("logo", session, now, true), "")
+})
+
+test("filters notification session types", () => {
+  assert.equal(Model.shouldNotifySession({ name: "Practice 1" }, "all"), true)
+  assert.equal(Model.shouldNotifySession({ name: "Practice 1" }, "competitive"), false)
+  assert.equal(Model.shouldNotifySession({ name: "FP2" }, "competitive"), false)
+  assert.equal(Model.shouldNotifySession({ name: "Qualifying" }, "competitive"), true)
+  assert.equal(Model.shouldNotifySession({ name: "Sprint" }, "competitive"), true)
+  assert.equal(Model.shouldNotifySession({ name: "Qualifying" }, "race"), false)
+  assert.equal(Model.shouldNotifySession({ name: "Sprint Qualifying" }, "race"), false)
+  assert.equal(Model.shouldNotifySession({ name: "Sprint" }, "race"), true)
+  assert.equal(Model.shouldNotifySession({ name: "Race" }, "race"), true)
+})

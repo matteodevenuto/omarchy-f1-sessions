@@ -19,7 +19,16 @@ Panel {
   readonly property int tzOffsetMinutes: hostWidget ? hostWidget.tzOffsetMinutes : 0
   readonly property bool use24h: hostWidget ? hostWidget.use24h : true
   readonly property bool loaded: hostWidget ? hostWidget.loaded : false
+  readonly property bool fetching: hostWidget ? hostWidget.fetching : false
+  readonly property bool usingCache: hostWidget ? hostWidget.usingCache : false
+  readonly property string fetchError: hostWidget ? hostWidget.fetchError : ""
   readonly property string lastUpdated: hostWidget ? hostWidget.lastUpdated : ""
+  readonly property string notificationFilterLabel: {
+    var mode = hostWidget ? hostWidget.notificationSessions : "all"
+    if (mode === "race") return "races + sprints"
+    if (mode === "competitive") return "competitive sessions"
+    return "all sessions"
+  }
   readonly property int focusIdx: Model.focusIndex(sessions, nowMs)
   readonly property var focusSession: (focusIdx >= 0 && focusIdx < sessions.length) ? sessions[focusIdx] : null
   // All upcoming race weekends, nearest first.
@@ -47,6 +56,30 @@ Panel {
     return false
   }
 
+  function moveFooterFocus(direction) {
+    var actions = [refreshButton, filterButton, bellButton]
+    var current = -1
+    for (var i = 0; i < actions.length; i++)
+      if (actions[i].activeFocus) current = i
+    if (current < 0) {
+      actions[direction < 0 ? actions.length - 1 : 0].forceActiveFocus()
+      return
+    }
+    var next = current + (direction < 0 ? -1 : 1)
+    if (next >= 0 && next < actions.length) {
+      actions[next].forceActiveFocus()
+      return
+    }
+    keyCatcher.forceActiveFocus()
+    root.switchPanel(direction)
+  }
+
+  function activateFooterAction() {
+    var actions = [refreshButton, filterButton, bellButton]
+    for (var i = 0; i < actions.length; i++)
+      if (actions[i].activeFocus && actions[i].enabled) actions[i].clicked()
+  }
+
   KeyboardPanel {
     id: panel
     anchorItem: root.anchorItem
@@ -61,7 +94,8 @@ Panel {
       id: keyCatcher
       anchors.fill: parent
       onCloseRequested: root.close()
-      onTabRequested: function(direction) { root.switchPanel(direction) }
+      onTabRequested: function(direction) { root.moveFooterFocus(direction) }
+      onActivateRequested: root.activateFooterAction()
 
       Flickable {
         id: scheduleScroll
@@ -364,73 +398,93 @@ Panel {
 
             Text {
               anchors.centerIn: parent
-              text: (hostWidget ? hostWidget.sourceLabel : "OpenF1")
-                    + " · times local"
-                    + (root.lastUpdated !== "" ? " · updated " + root.lastUpdated : "")
-              color: Qt.darker(root.bar.foreground, 1.7)
+              width: parent.width - Style.space(150)
+              horizontalAlignment: Text.AlignHCenter
+              elide: Text.ElideRight
+              text: {
+                if (root.fetchError !== "") return root.fetchError
+                var state = root.fetching ? "Refreshing…"
+                  : (root.usingCache ? "Cached" : (hostWidget ? hostWidget.sourceLabel : "OpenF1"))
+                return state + " · times local"
+                  + (root.lastUpdated !== "" ? " · updated " + root.lastUpdated : "")
+              }
+              color: root.fetchError !== ""
+                ? (root.bar.urgent !== undefined ? root.bar.urgent : root.bar.foreground)
+                : Qt.darker(root.bar.foreground, 1.7)
               font.family: root.bar.fontFamily
               font.pixelSize: Style.font.caption
               font.italic: true
             }
 
-            // Keep notification control in the footer instead of floating at
-            // the panel edge, aligned with the source/update status.
-            Rectangle {
+            // Use the shell's standard inline action controls and icon font.
+            PanelActionButton {
               id: bellButton
               anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
-              width: Style.space(28)
-              height: width
-              radius: height / 2
-              color: bellArea.containsMouse
-                     ? Style.hoverFillFor(root.bar.foreground, Color.accent)
-                     : "transparent"
+              size: Style.space(28)
+              iconText: hostWidget && hostWidget.notificationsOn ? "\uf0f3" : "\uf1f6"
+              tooltipText: {
+                if (!hostWidget || !hostWidget.notificationsOn)
+                  return "Alerts off · click for notifications + sound"
+                if (hostWidget.notificationSoundOn)
+                  return "Alerts on with sound · click to mute"
+                return "Alerts on, muted · click to turn off"
+              }
+              foreground: (hostWidget && hostWidget.notificationsOn)
+                ? root.bar.foreground : Qt.darker(root.bar.foreground, 1.6)
+              hoverColor: root.bar.foreground
+              fontFamily: root.bar.fontFamily
+              enabled: hostWidget !== null
+              focusable: true
+              onClicked: if (hostWidget) hostWidget.cycleAlertMode()
 
               Text {
-                anchors.centerIn: parent
-                text: hostWidget && hostWidget.notificationsOn ? "🔔" : "🔕"
-                color: (hostWidget && hostWidget.notificationsOn)
-                       ? root.bar.foreground : Qt.darker(root.bar.foreground, 1.6)
+                visible: hostWidget && hostWidget.notificationsOn
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.rightMargin: Style.space(1)
+                anchors.bottomMargin: Style.space(1)
+                text: hostWidget && hostWidget.notificationSoundOn ? "\uf028" : "\uf026"
+                color: bellButton.foreground
                 font.family: root.bar.fontFamily
-                font.pixelSize: Style.font.body
-              }
-
-              MouseArea {
-                id: bellArea
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: if (hostWidget) hostWidget.toggleNotifications()
+                font.pixelSize: Style.font.caption * 0.65
               }
             }
 
-            Rectangle {
+            PanelActionButton {
+              id: refreshButton
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+              size: Style.space(28)
+              iconText: "\uf021"
+              tooltipText: root.fetching ? "Refreshing schedule…" : "Refresh schedule"
+              foreground: root.bar.foreground
+              hoverColor: root.bar.foreground
+              fontFamily: root.bar.fontFamily
+              enabled: hostWidget !== null && !root.fetching
+              focusable: true
+              onClicked: if (hostWidget) hostWidget.refresh()
+            }
+
+            PanelActionButton {
+              id: filterButton
               anchors.right: bellButton.left
               anchors.rightMargin: Style.space(4)
               anchors.verticalCenter: parent.verticalCenter
-              width: Style.space(28)
-              height: width
-              radius: height / 2
-              color: soundArea.containsMouse
-                     ? Style.hoverFillFor(root.bar.foreground, Color.accent)
-                     : "transparent"
-
-              Text {
-                anchors.centerIn: parent
-                text: hostWidget && hostWidget.notificationSoundOn ? "🔊" : "🔇"
-                color: (hostWidget && hostWidget.notificationSoundOn)
-                       ? root.bar.foreground : Qt.darker(root.bar.foreground, 1.6)
-                font.family: root.bar.fontFamily
-                font.pixelSize: Style.font.body
+              size: Style.space(28)
+              iconText: {
+                var mode = hostWidget ? hostWidget.notificationSessions : "all"
+                if (mode === "race") return "\uf11e"
+                if (mode === "competitive") return "\uf091"
+                return "\uf0ac"
               }
-
-              MouseArea {
-                id: soundArea
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: if (hostWidget) hostWidget.toggleNotificationSound()
-              }
+              tooltipText: "Alerts: " + root.notificationFilterLabel + " · click to change"
+              foreground: root.bar.foreground
+              hoverColor: root.bar.foreground
+              fontFamily: root.bar.fontFamily
+              enabled: hostWidget !== null
+              focusable: true
+              onClicked: if (hostWidget) hostWidget.cycleNotificationSessions()
             }
           }
         }
